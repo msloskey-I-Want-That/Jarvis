@@ -340,6 +340,15 @@
   }
 
   .hidden { display: none !important; }
+
+  .sync-toast {
+    position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%) translateY(10px);
+    max-width: 90%; padding: 10px 16px; border-radius: 10px; z-index: 60;
+    background: rgba(255,59,48,0.14); border: 1px solid rgba(255,59,48,0.4); backdrop-filter: blur(14px);
+    color: var(--ink); font-size: 12.5px; text-align: center; opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  .sync-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
@@ -405,6 +414,10 @@
             <button type="button" id="detailCloseBtn" class="sheet-cancel">Close</button>
           </div>
           <div class="row-meta" id="detailMeta"></div>
+          <button type="button" id="playAllBtn" class="export-btn hidden" style="margin: 6px 0 4px;">
+            <svg viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+            Play All Segments
+          </button>
           <div class="segment-chips" id="segmentChips"></div>
           <audio class="audio-playback" id="detailAudio" controls></audio>
           <div class="field-label" style="margin-top:14px;">Transcript</div>
@@ -473,6 +486,7 @@
 </div>
 
 <div id="scanSweep" class="scan-sweep"></div>
+<div id="syncToast" class="sync-toast hidden"></div>
 
 <nav class="tab-bar">
   <div class="tab-bar-inner">
@@ -524,7 +538,12 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
+  const SUPABASE_URL = "https://ijdsokifuwroqyxyctdb.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqZHNva2lmdXdyb3F5eHljdGRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NzQ0MjgsImV4cCI6MjEwMzM1MDQyOH0.bf75JxJBMkkMlurmI8qsWj_UOZtdqggrBHGHahzC3_E";
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
   const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const SWATCHES = ["#4fd8ff", "#b98eff", "#63e6be", "#ffb454", "#ff6fb0", "#5e9eff"];
 
@@ -565,7 +584,7 @@
     dial.classList.add("activating");
   }
 
-  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function uid() { return crypto.randomUUID(); }
   function escapeHtml(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 
   // Updates an element's text and gives it a brief HUD flash — but only when the value actually
@@ -576,6 +595,134 @@
     el.classList.remove("value-flash");
     void el.offsetWidth;
     el.classList.add("value-flash");
+  }
+
+  // ================= SUPABASE PERSISTENCE =================
+  // Local arrays (classes/lectures/studyGuides) remain the source of truth for rendering —
+  // every existing render function keeps working untouched. These helpers sync each mutation
+  // to Supabase in the background ("local-first"): the UI updates instantly, the write happens
+  // async, and errors surface as a small non-blocking toast rather than breaking the UI.
+
+  function showSyncError(msg) {
+    const el = document.getElementById("syncToast");
+    el.textContent = "Sync issue: " + msg;
+    el.classList.remove("hidden");
+    el.classList.remove("show");
+    void el.offsetWidth;
+    el.classList.add("show");
+    clearTimeout(showSyncError._t);
+    showSyncError._t = setTimeout(() => el.classList.remove("show"), 4000);
+  }
+
+  function classToRow(c) {
+    return {
+      id: c.id, name: c.name, professor: c.professor || null, code: c.code || null,
+      start_time: c.startTime || null, end_time: c.endTime || null, days: c.days || [], color: c.color
+    };
+  }
+  function rowToClass(r) {
+    return {
+      id: r.id, name: r.name, professor: r.professor || "", code: r.code || "",
+      startTime: r.start_time ? r.start_time.slice(0, 5) : "", endTime: r.end_time ? r.end_time.slice(0, 5) : "",
+      days: r.days || [], color: r.color
+    };
+  }
+  function rowToLecture(r) {
+    return {
+      id: r.id, classId: r.class_id, date: new Date(r.recorded_at), durationSec: r.duration_sec, status: r.status,
+      transcript: r.transcript || "", summary: r.summary || null,
+      segments: (r.lecture_segments || [])
+        .slice()
+        .sort((a, b) => a.segment_index - b.segment_index)
+        .map(s => ({ index: s.segment_index, storagePath: s.storage_path, durationSec: s.duration_sec, audioUrl: null }))
+    };
+  }
+
+  async function loadAllData() {
+    try {
+      const [{ data: classRows, error: cErr }, { data: lectureRows, error: lErr }, { data: guideRows, error: gErr }] = await Promise.all([
+        sb.from("classes").select("*").order("created_at"),
+        sb.from("lectures").select("*, lecture_segments(*)").order("recorded_at", { ascending: false }),
+        sb.from("study_guides").select("*").order("generated_at", { ascending: false })
+      ]);
+      if (cErr) throw cErr;
+      if (lErr) throw lErr;
+      if (gErr) throw gErr;
+      classes = (classRows || []).map(rowToClass);
+      lectures = (lectureRows || []).map(rowToLecture);
+      studyGuides = {};
+      (guideRows || []).forEach(row => {
+        if (!studyGuides[row.class_id]) {
+          studyGuides[row.class_id] = { content: row.content, generatedAt: new Date(row.generated_at), sourceLectureIds: row.source_lecture_ids || [] };
+        }
+      });
+    } catch (err) {
+      showSyncError("couldn't load saved data — " + err.message);
+    }
+  }
+
+  async function persistClassInsert(cls) {
+    const { error } = await sb.from("classes").insert(classToRow(cls));
+    if (error) showSyncError("class didn't save — " + error.message);
+  }
+  async function persistClassUpdate(cls) {
+    const { error } = await sb.from("classes").update(classToRow(cls)).eq("id", cls.id);
+    if (error) showSyncError("class update didn't save — " + error.message);
+  }
+  async function persistClassDelete(id) {
+    const { error } = await sb.from("classes").delete().eq("id", id);
+    if (error) showSyncError("class delete didn't save — " + error.message);
+  }
+
+  async function persistLectureInsert(lecture) {
+    const { error } = await sb.from("lectures").insert({
+      id: lecture.id, class_id: lecture.classId, recorded_at: lecture.date.toISOString(),
+      duration_sec: lecture.durationSec, status: lecture.status, transcript: lecture.transcript || null, summary: lecture.summary
+    });
+    if (error) showSyncError("lecture didn't save — " + error.message);
+  }
+  async function persistLectureUpdate(lecture) {
+    const { error } = await sb.from("lectures")
+      .update({ status: lecture.status, transcript: lecture.transcript || null, summary: lecture.summary })
+      .eq("id", lecture.id);
+    if (error) showSyncError("lecture update didn't save — " + error.message);
+  }
+  async function persistLectureDelete(lecture) {
+    const paths = (lecture.segments || []).map(s => s.storagePath).filter(Boolean);
+    if (paths.length) await sb.storage.from("lecture-audio").remove(paths);
+    const { error } = await sb.from("lectures").delete().eq("id", lecture.id);
+    if (error) showSyncError("lecture delete didn't save — " + error.message);
+  }
+
+  async function persistSegment(lectureId, seg, blob) {
+    try {
+      const path = lectureId + "/segment-" + seg.index + ".webm";
+      const { error: upErr } = await sb.storage.from("lecture-audio").upload(path, blob, { contentType: blob.type || "audio/webm" });
+      if (upErr) throw upErr;
+      const { error: dbErr } = await sb.from("lecture_segments").insert({
+        lecture_id: lectureId, segment_index: seg.index, storage_path: path, duration_sec: seg.durationSec
+      });
+      if (dbErr) throw dbErr;
+      seg.storagePath = path;
+    } catch (err) {
+      showSyncError("audio segment didn't upload — " + err.message);
+    }
+  }
+
+  async function persistGuideInsert(classId, guide) {
+    const { error } = await sb.from("study_guides").insert({
+      class_id: classId, content: guide.content, source_lecture_ids: guide.sourceLectureIds, generated_at: guide.generatedAt.toISOString()
+    });
+    if (error) showSyncError("study guide didn't save — " + error.message);
+  }
+
+  // Resolves a segment's playable URL: local blob URL if this session recorded it,
+  // otherwise a fresh signed URL fetched from Storage.
+  async function resolveSegmentUrl(seg) {
+    if (seg.audioUrl) return seg.audioUrl;
+    const { data, error } = await sb.storage.from("lecture-audio").createSignedUrl(seg.storagePath, 3600);
+    if (error) { showSyncError("couldn't load audio — " + error.message); return null; }
+    return data.signedUrl;
   }
 
   // ================= LIVE CLOCK + WEATHER READOUT =================
@@ -880,8 +1027,11 @@
     if (editingId) {
       const idx = classes.findIndex(c => c.id === editingId);
       classes[idx] = { ...classes[idx], ...data };
+      persistClassUpdate(classes[idx]);
     } else {
-      classes.push({ id: uid(), ...data });
+      const newClass = { id: uid(), ...data };
+      classes.push(newClass);
+      persistClassInsert(newClass);
     }
     renderClassList();
     closeSheet();
@@ -896,6 +1046,7 @@
     lectures = lectures.filter(l => l.classId !== editingId);
     delete studyGuides[editingId];
     classes = classes.filter(c => c.id !== editingId);
+    persistClassDelete(editingId);
     renderClassList();
     closeSheet();
   });
@@ -926,6 +1077,7 @@
 
   let selectedClassId = null;
   let activeLectureId = null;
+  let playAllMode = false, currentSegmentIndex = 0;
   let mediaStream = null, mediaRecorder = null, recordedChunks = [], recordStartTime = null, timerInterval = null, wakeLockSentinel = null, isRecording = false;
   let currentSegments = [], segmentStartTime = null, segmentTimer = null;
   // 30s here so chunking is actually visible while testing. For real deployment this should be
@@ -1027,7 +1179,7 @@
     mediaRecorder.onstop = () => {
       const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || "audio/webm" });
       const segDurationSec = Math.max(1, Math.round((Date.now() - segmentStartTime) / 1000));
-      currentSegments.push({ index: currentSegments.length + 1, audioUrl: URL.createObjectURL(blob), durationSec: segDurationSec });
+      currentSegments.push({ index: currentSegments.length + 1, audioUrl: URL.createObjectURL(blob), durationSec: segDurationSec, blob });
       if (isRecording) startNewSegmentRecorder();
       else finalizeRecording();
     };
@@ -1060,6 +1212,9 @@
     timerDisplay.textContent = "00:00:00";
     renderLectureList();
     openLectureDetail(lecture.id);
+    persistLectureInsert(lecture).then(() => {
+      segments.forEach(seg => persistSegment(lecture.id, seg, seg.blob));
+    });
   }
 
   function openLectureDetail(id) {
@@ -1084,22 +1239,53 @@
 
   function renderSegmentChips(lecture) {
     const segmentChipsEl = document.getElementById("segmentChips");
+    const playAllBtn = document.getElementById("playAllBtn");
     segmentChipsEl.innerHTML = "";
-    if (!lecture.segments || lecture.segments.length === 0) { detailAudio.removeAttribute("src"); return; }
+    playAllMode = false;
+    currentSegmentIndex = 0;
+    if (!lecture.segments || lecture.segments.length === 0) { detailAudio.removeAttribute("src"); playAllBtn.classList.add("hidden"); return; }
+    playAllBtn.classList.toggle("hidden", lecture.segments.length < 2);
     lecture.segments.forEach((seg, i) => {
       const chip = document.createElement("button");
       chip.type = "button";
       chip.className = "segment-chip" + (i === 0 ? " active" : "");
       chip.textContent = "Segment " + seg.index + " · " + formatTime(seg.durationSec).replace(/^00:/, "");
-      chip.addEventListener("click", () => {
+      chip.addEventListener("click", async () => {
+        playAllMode = false;
+        currentSegmentIndex = i;
         segmentChipsEl.querySelectorAll(".segment-chip").forEach(c => c.classList.remove("active"));
         chip.classList.add("active");
-        detailAudio.src = seg.audioUrl;
+        const url = await resolveSegmentUrl(seg);
+        if (url) detailAudio.src = url;
       });
       segmentChipsEl.appendChild(chip);
     });
-    detailAudio.src = lecture.segments[0].audioUrl;
+    resolveSegmentUrl(lecture.segments[0]).then(url => { if (url) detailAudio.src = url; });
   }
+
+  async function playSegmentAt(lecture, index) {
+    if (!lecture.segments || index >= lecture.segments.length) { playAllMode = false; return; }
+    currentSegmentIndex = index;
+    document.querySelectorAll("#segmentChips .segment-chip").forEach((c, i) => c.classList.toggle("active", i === index));
+    const url = await resolveSegmentUrl(lecture.segments[index]);
+    if (!url) { playAllMode = false; return; }
+    detailAudio.src = url;
+    detailAudio.play().catch(() => {});
+  }
+
+  document.getElementById("playAllBtn").addEventListener("click", () => {
+    const lecture = lectures.find(l => l.id === activeLectureId);
+    if (!lecture || !lecture.segments || lecture.segments.length === 0) return;
+    playAllMode = true;
+    playSegmentAt(lecture, 0);
+  });
+
+  detailAudio.addEventListener("ended", () => {
+    if (!playAllMode) return;
+    const lecture = lectures.find(l => l.id === activeLectureId);
+    if (!lecture) { playAllMode = false; return; }
+    playSegmentAt(lecture, currentSegmentIndex + 1);
+  });
 
   function updateGenerateBtnState() { generateSummaryBtn.disabled = transcriptInput.value.trim().length === 0; }
   transcriptInput.addEventListener("input", updateGenerateBtnState);
@@ -1123,8 +1309,9 @@
       return;
     }
     const lecture = lectures.find(l => l.id === activeLectureId);
-    if (lecture && lecture.segments) lecture.segments.forEach(seg => URL.revokeObjectURL(seg.audioUrl));
+    if (lecture && lecture.segments) lecture.segments.forEach(seg => { if (seg.audioUrl) URL.revokeObjectURL(seg.audioUrl); });
     lectures = lectures.filter(l => l.id !== activeLectureId);
+    if (lecture) persistLectureDelete(lecture);
     lectureDetail.classList.add("hidden");
     activeLectureId = null;
     renderLectureList();
@@ -1200,6 +1387,7 @@
       lecture.transcript = transcript;
       lecture.summary = parsed;
       lecture.status = "done";
+      persistLectureUpdate(lecture);
       detailEyebrow.className = "preview-eyebrow";
       flashText(detailEyebrow, "Generated From Transcript");
       generateSummaryBtn.textContent = "Regenerate Summary";
@@ -1349,6 +1537,7 @@
       }));
       const raw = await callClaude(buildGuidePrompt(cls.name, summaries));
       studyGuides[cls.id] = { content: raw, generatedAt: new Date(), sourceLectureIds: doneLectures.map(l => l.id) };
+      persistGuideInsert(cls.id, studyGuides[cls.id]);
       renderGuideDetail();
     } catch (err) {
       guideError.textContent = "Couldn't compile the guide — " + err.message + ". Try again.";
@@ -1359,8 +1548,14 @@
     }
   });
 
-  renderClassList();
-  playScanSweep();
+  (async function init() {
+    renderClassList(); // instant paint (likely empty) so the screen isn't blank while the fetch runs
+    playScanSweep();
+    await loadAllData();
+    renderClassList();
+    if (document.getElementById("screen-record").classList.contains("active")) renderRecordScreen();
+    if (document.getElementById("screen-guides").classList.contains("active")) renderGuidesScreen();
+  })();
 </script>
 
 </body>
