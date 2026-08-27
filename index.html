@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>Jarvis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #04070a;
+    --bg2: #071019;
+    --glass: rgba(10, 24, 32, 0.55);
+    --glass-strong: rgba(8, 18, 25, 0.82);
+    --glass-border: rgba(0, 224, 255, 0.24);
+    --sep: rgba(255, 255, 255, 0.07);
+    --accent: #00d9ff;
+    --accent-bright: #8ff5ff;
+    --accent-dim: #5aa8ba;
+    --accent-soft: rgba(0, 217, 255, 0.35);
+    --ink: #eaf6f9;
+    --ink-dim: rgba(234, 246, 249, 0.56);
+    --ink-faint: rgba(234, 246, 249, 0.30);
+    --red: #ff3b30;
+    --amber: #ffb454;
+    --hud: "Orbitron", sans-serif;
+    --sys: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", sans-serif;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -6%, rgba(0,217,255,0.16) 0%, transparent 60%),
+      radial-gradient(ellipse 650px 420px at 4% 30%, rgba(0,217,255,0.11) 0%, transparent 65%),
+      radial-gradient(ellipse 650px 420px at 98% 50%, rgba(0,217,255,0.10) 0%, transparent 65%),
+      radial-gradient(ellipse 700px 460px at 15% 76%, rgba(0,217,255,0.10) 0%, transparent 65%),
+      radial-gradient(ellipse 620px 320px at 50% 100%, rgba(0,217,255,0.17) 0%, transparent 65%),
+      linear-gradient(180deg, var(--bg2) 0%, var(--bg) 30%, var(--bg) 100%);
+    color: var(--ink);
+    font-family: var(--sys);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.07;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cpath d='M0 30 H45 V80 H120' stroke='%2300d9ff' stroke-width='1' fill='none'/%3E%3Ccircle cx='45' cy='30' r='2.2' fill='%2300d9ff'/%3E%3Ccircle cx='45' cy='80' r='2.2' fill='%2300d9ff'/%3E%3Cpath d='M75 0 V50 H20 V120' stroke='%2300d9ff' stroke-width='1' fill='none' opacity='0.6'/%3E%3Ccircle cx='75' cy='50' r='2' fill='%2300d9ff' opacity='0.6'/%3E%3C/svg%3E");
+    background-size: 120px 120px;
+    mask-image: radial-gradient(ellipse 85% 95% at 50% 8%, black 0%, transparent 88%);
+  }
+
+  .app { max-width: 520px; margin: 0 auto; padding: 22px 18px 40px; }
+
+  header { animation: bootIn 0.5s cubic-bezier(.2,.8,.2,1) both; }
+  main { animation: bootIn 0.55s cubic-bezier(.2,.8,.2,1) both 0.10s; }
+
+  .page-section { margin-top: 38px; }
+  .page-section:first-child { margin-top: 0; }
+  .section-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding: 0 2px; flex-shrink: 0; }
+  .section-title {
+    font-family: var(--hud); font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink);
+  }
+  .mini-status { display: flex; align-items: center; gap: 7px; }
+  .mini-status .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px 1px var(--accent-soft); }
+  .mini-status .status-dot.recording { background: var(--red); box-shadow: 0 0 8px 1px rgba(255,59,48,0.5); animation: dotPulse 1.1s ease-in-out infinite; }
+  .section-scroll { min-height: 0; }
+
+  /* ---- Laptop dashboard: fits one screen, three columns, no page-level scroll ---- */
+  @media (min-width: 980px) {
+    body { height: 100vh; overflow: hidden; }
+    .app {
+      max-width: 1500px; height: 100vh; box-sizing: border-box;
+      display: flex; flex-direction: column; padding: 18px 32px 20px;
+    }
+    header { flex-shrink: 0; }
+    main {
+      flex: 1; min-height: 0;
+      display: grid; grid-template-columns: 1fr 1.15fr 1fr; gap: 24px;
+    }
+    .page-section {
+      margin-top: 0; height: 100%; min-height: 0;
+      display: flex; flex-direction: column;
+    }
+    .section-scroll { flex: 1; overflow-y: auto; padding-right: 6px; }
+    .hud-header {
+      display: flex; align-items: center; justify-content: space-between; gap: 24px;
+      padding: 4px 4px 16px;
+    }
+    .status-row { margin-bottom: 0; }
+    .title-row { margin: 0; }
+    .hud-readout { margin: 0; width: auto; flex-shrink: 0; }
+  }
+
+  @keyframes bootIn { from { opacity: 0; transform: translateY(-6px); filter: blur(2px); } to { opacity: 1; transform: translateY(0); filter: blur(0); } }
+
+  .hud-header { position: relative; padding: 10px 4px 20px; }
+  .status-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .status-dot-wrap { position: relative; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .status-outer-ring { position: absolute; inset: 0; border: 1px solid rgba(0,217,255,0.22); border-radius: 50%; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px 2px var(--accent-soft); }
+  .status-dot.recording { background: var(--red); box-shadow: 0 0 8px 2px rgba(255,59,48,0.5); animation: dotPulse 1.1s ease-in-out infinite; }
+  @keyframes dotPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .status-ring { position: absolute; inset: 2px; border: 1px dashed rgba(0,217,255,0.5); border-radius: 50%; animation: spin 16s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .status-text { font-family: var(--hud); font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; color: var(--accent-dim); text-transform: uppercase; }
+  .title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .large-title { font-family: var(--sys); font-weight: 700; font-size: 32px; letter-spacing: -0.015em; color: var(--ink); margin: 0; }
+
+  .hud-readout {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 11px 14px; margin: 16px 0 4px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 45%), var(--glass);
+    border: 1px solid var(--glass-border); border-radius: 14px;
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .readout-clock { display: flex; flex-direction: column; }
+  .readout-time { font-family: var(--hud); font-size: 19px; font-weight: 600; color: var(--ink); letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+  .readout-date { font-family: var(--hud); font-size: 9px; font-weight: 500; letter-spacing: 0.08em; color: var(--ink-faint); text-transform: uppercase; margin-top: 2px; }
+  .readout-weather { display: flex; align-items: center; gap: 9px; }
+  .weather-icon { width: 21px; height: 21px; stroke: var(--accent); fill: none; stroke-width: 1.5; flex-shrink: 0; filter: drop-shadow(0 0 4px rgba(0,217,255,0.4)); }
+  .readout-weather-text { display: flex; flex-direction: column; align-items: flex-end; }
+  .readout-temp { font-family: var(--hud); font-size: 15px; font-weight: 600; color: var(--accent); }
+  .readout-loc { font-family: var(--hud); font-size: 8.5px; font-weight: 500; letter-spacing: 0.08em; color: var(--ink-faint); text-transform: uppercase; margin-top: 1px; }
+
+  .plus-btn {
+    width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0; background: var(--glass); border: 1px solid var(--glass-border);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: var(--accent); font-size: 20px; font-weight: 400; transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08); position: relative;
+  }
+  .plus-btn::before {
+    content: ""; position: absolute; inset: -6px; border: 1px dashed rgba(0,217,255,0.35); border-radius: 50%;
+    animation: spin 20s linear infinite; pointer-events: none;
+  }
+  .plus-btn:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 20px rgba(0,217,255,0.32); }
+  .plus-btn:active { transform: scale(0.92); }
+
+  .lock-pulse { position: fixed; width: 42px; height: 42px; border-radius: 50%; border: 1.5px solid var(--accent); pointer-events: none; z-index: 50; animation: lockOn 0.55s cubic-bezier(.2,.8,.3,1) forwards; }
+  @keyframes lockOn { from { transform: scale(1); opacity: 0.9; } to { transform: scale(2.4); opacity: 0; } }
+
+  .list-group {
+    background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 45%), var(--glass);
+    border: 1px solid var(--glass-border); border-radius: 20px;
+    backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px); overflow: hidden;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 10px 30px rgba(0,0,0,0.3);
+  }
+
+  .empty-state { padding: 40px 22px 44px; text-align: center; }
+  .empty-state p { font-size: 14.5px; color: var(--ink-dim); margin: 0 0 18px; line-height: 1.5; }
+
+  .empty-cta {
+    font-family: var(--hud); font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--bg); background: var(--accent); border: none; padding: 11px 22px; border-radius: 100px; cursor: pointer; box-shadow: 0 0 22px rgba(0,217,255,0.4);
+  }
+  .empty-cta:disabled { opacity: 0.35; pointer-events: none; box-shadow: none; }
+  .action-btn { width: 100%; margin-top: 10px; }
+
+  .class-row, .lecture-row {
+    display: flex; align-items: center; gap: 13px; padding: 14px 16px; cursor: pointer;
+    border-bottom: 1px solid var(--sep); transition: background 0.15s ease; animation: rowIn 0.35s ease both;
+  }
+  .class-row:last-child, .lecture-row:last-child { border-bottom: none; }
+  .class-row:hover, .lecture-row:hover { background: rgba(255,255,255,0.025); }
+  .class-row:active, .lecture-row:active { background: rgba(0,217,255,0.06); }
+  @keyframes rowIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+  .row-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+  .row-body { flex: 1; min-width: 0; }
+  .row-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .row-name { font-size: 16px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row-code { font-family: var(--hud); font-size: 10px; font-weight: 600; letter-spacing: 0.06em; color: var(--accent-dim); flex-shrink: 0; background: rgba(0,217,255,0.08); border: 1px solid rgba(0,217,255,0.22); padding: 2px 7px; border-radius: 6px; }
+  .row-meta { font-family: var(--hud); font-size: 10.5px; font-weight: 500; letter-spacing: 0.05em; color: var(--ink-faint); text-transform: uppercase; margin-top: 3px; }
+  .row-professor { font-size: 12.5px; color: var(--ink-dim); margin-top: 2px; }
+  .chevron { color: var(--ink-faint); font-size: 14px; flex-shrink: 0; }
+
+  .status-chip { font-family: var(--hud); font-size: 9.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 8px; border-radius: 6px; flex-shrink: 0; }
+  .status-chip.processing { color: var(--amber); background: rgba(255,180,84,0.1); border: 1px solid rgba(255,180,84,0.25); }
+  .status-chip.done { color: var(--accent); background: rgba(0,217,255,0.08); border: 1px solid rgba(0,217,255,0.22); }
+  .status-chip.live-chip { color: var(--accent); background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.32); animation: dotPulse 1.6s ease-in-out infinite; }
+
+  @keyframes chipPop { 0% { transform: scale(1); } 45% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+  @keyframes valueFlash { 0% { opacity: 0.35; text-shadow: 0 0 14px rgba(0,217,255,0.7); } 100% { opacity: 1; text-shadow: none; } }
+  .value-flash { animation: valueFlash 0.35s ease-out; }
+
+  .sheet-overlay { position: fixed; inset: 0; background: rgba(2, 6, 9, 0.68); backdrop-filter: blur(2px); display: flex; align-items: flex-end; justify-content: center; z-index: 30; }
+  .sheet-overlay.hidden { display: none; }
+  .sheet {
+    width: 100%; max-width: 520px;
+    background: linear-gradient(160deg, rgba(255,255,255,0.05) 0%, transparent 40%), var(--glass-strong);
+    border: 1px solid var(--glass-border); border-bottom: none; border-radius: 24px 24px 0 0;
+    backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px); max-height: 90vh; overflow-y: auto; position: relative;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 -10px 40px rgba(0,0,0,0.4);
+    animation: sheetUp 0.3s cubic-bezier(.2,.9,.25,1) both;
+  }
+  @keyframes sheetUp { from { transform: translateY(28px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .hud-corner { position: absolute; width: 18px; height: 18px; border-color: var(--accent-soft); opacity: 0.7; pointer-events: none; }
+  .hud-corner.tl { top: 10px; left: 10px; border-top: 1.5px solid; border-left: 1.5px solid; border-radius: 4px 0 0 0; }
+  .hud-corner.tr { top: 10px; right: 10px; border-top: 1.5px solid; border-right: 1.5px solid; border-radius: 0 4px 0 0; }
+  .sheet-handle { width: 36px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.18); margin: 10px auto 4px; }
+
+  @media (min-width: 980px) {
+    .sheet-overlay { align-items: center; }
+    .sheet { border-radius: 24px; max-width: 480px; max-height: 82vh; }
+    .sheet-handle { display: none; }
+  }
+  .sheet-topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px 16px; }
+  .sheet-cancel { background: none; border: none; color: var(--ink-dim); font-size: 15px; cursor: pointer; padding: 4px; }
+  .sheet-save { background: none; border: none; color: var(--accent); font-size: 15px; font-weight: 600; cursor: pointer; padding: 4px; transition: opacity 0.15s ease; }
+  .sheet-save.disabled { opacity: 0.35; pointer-events: none; }
+  .sheet-eyebrow { font-family: var(--hud); font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-dim); }
+
+  #classForm { display: flex; flex-direction: column; gap: 16px; padding: 4px 20px 24px; }
+  #classForm label { display: flex; flex-direction: column; gap: 7px; }
+  .field-label { font-family: var(--hud); font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); }
+
+  #classForm input, .detail-textarea {
+    font-family: var(--sys); font-size: 15px; padding: 12px 13px; border-radius: 12px; border: 1px solid transparent;
+    background: rgba(255,255,255,0.05); color: var(--ink); outline: none; width: 100%; color-scheme: dark;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  }
+  .time-fields { display: flex; gap: 10px; }
+  .time-fields label { flex: 1; }
+  #classForm input:focus, .detail-textarea:focus { border-color: var(--accent-soft); background: rgba(255,255,255,0.07); box-shadow: 0 0 0 4px rgba(0,217,255,0.14); }
+  #classForm input::placeholder, .detail-textarea::placeholder { color: var(--ink-faint); }
+  .detail-textarea { font-size: 14.5px; resize: vertical; min-height: 110px; line-height: 1.5; }
+
+  .days-field, .color-field { display: flex; flex-direction: column; gap: 8px; }
+  .day-chips { display: flex; gap: 6px; }
+  .day-chip { flex: 1; font-family: var(--hud); font-size: 11px; font-weight: 600; padding: 9px 0; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.04); color: var(--ink-dim); cursor: pointer; transition: all 0.12s ease; animation: chipPop 0.2s ease; }
+  .day-chip.active { background: var(--accent); border-color: var(--accent); color: var(--bg); box-shadow: 0 0 14px rgba(0,217,255,0.4); }
+
+  .color-swatches { display: flex; gap: 10px; }
+  .swatch { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: transform 0.12s ease, box-shadow 0.12s ease; animation: chipPop 0.2s ease; }
+  .swatch.active { border-color: rgba(255,255,255,0.85); transform: scale(1.15); }
+
+  .delete-row { width: 100%; margin-top: 6px; padding: 14px; background: rgba(255,59,48,0.09); border: 1px solid rgba(255,59,48,0.28); border-radius: 12px; color: var(--red); font-size: 15px; font-weight: 500; cursor: pointer; transition: background 0.15s ease; }
+  .delete-row.confirming { background: var(--red); color: #fff; }
+
+  .class-picker { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 26px; }
+  .class-picker::-webkit-scrollbar { display: none; }
+  .class-timing {
+    text-align: center; font-family: var(--hud); font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--ink-faint); text-transform: uppercase; margin: -16px 0 22px; min-height: 14px; transition: color 0.2s ease;
+  }
+  .class-timing.live { color: var(--accent); text-shadow: 0 0 8px rgba(0,217,255,0.5); }
+  .picker-chip { flex-shrink: 0; display: flex; align-items: center; gap: 7px; padding: 9px 14px; border-radius: 100px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); cursor: pointer; font-size: 13px; color: var(--ink-dim); transition: all 0.15s ease; }
+  .picker-chip .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .picker-chip.active { background: rgba(0,217,255,0.10); border-color: var(--accent-soft); color: var(--ink); box-shadow: 0 0 14px rgba(0,217,255,0.18); }
+
+  .reactor-zone { display: flex; flex-direction: column; align-items: center; padding: 22px 0 30px; }
+  .reactor-btn {
+    position: relative; width: 132px; height: 132px; border-radius: 50%; cursor: pointer; border: none;
+    background: radial-gradient(circle at 50% 40%, rgba(0,217,255,0.20), rgba(10,24,32,0.65) 70%);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 0 0 1px var(--glass-border), 0 0 36px rgba(0,217,255,0.20);
+    transition: transform 0.15s ease;
+  }
+  .reactor-btn:active { transform: scale(0.96); }
+  .reactor-btn.recording { box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 0 0 1px rgba(255,59,48,0.45), 0 0 40px rgba(255,59,48,0.3); }
+
+  .reactor-dial { position: absolute; inset: -26px; width: calc(100% + 52px); height: calc(100% + 52px); pointer-events: none; animation: dialSpin 46s linear infinite; }
+  @keyframes dialSpin { to { transform: rotate(360deg); } }
+  .dial-tick-ring { fill: none; stroke: var(--accent-soft); stroke-width: 1.4; stroke-dasharray: 2 9; }
+  .dial-outer-ring { fill: none; stroke: rgba(0,217,255,0.16); stroke-width: 1; }
+  .reactor-btn.recording .reactor-dial { animation-duration: 10s; }
+  .reactor-btn.recording .dial-tick-ring { stroke: rgba(255,59,48,0.5); }
+
+  .reactor-sweep {
+    position: absolute; inset: 5px; border-radius: 50%; pointer-events: none; opacity: 0.55;
+    background: conic-gradient(from 0deg, rgba(0,217,255,0.3), transparent 16%, transparent 100%);
+    animation: sweepSpin 5s linear infinite;
+  }
+  @keyframes sweepSpin { to { transform: rotate(360deg); } }
+  .reactor-btn.recording .reactor-sweep { background: conic-gradient(from 0deg, rgba(255,59,48,0.32), transparent 16%, transparent 100%); animation-duration: 1.6s; }
+
+  .reactor-ring { position: absolute; inset: -10px; border-radius: 50%; border: 1.5px solid var(--accent-soft); opacity: 0.6; }
+  .reactor-btn.recording .reactor-ring { border-color: rgba(255,59,48,0.55); animation: reactorPulse 1.4s ease-out infinite; }
+  @keyframes reactorPulse { 0% { transform: scale(1); opacity: 0.7; } 100% { transform: scale(1.35); opacity: 0; } }
+  .reactor-icon { width: 34px; height: 34px; position: relative; z-index: 2; }
+  .reactor-icon .mic-body { fill: var(--accent-bright); }
+  .reactor-btn.recording .reactor-icon .mic-body { fill: var(--red); }
+  .timer-display { font-family: var(--hud); font-size: 40px; font-weight: 600; letter-spacing: 0.04em; color: var(--ink); margin-top: 26px; font-variant-numeric: tabular-nums; }
+  .record-caption { font-size: 13px; color: var(--ink-dim); margin-top: 8px; text-align: center; max-width: 300px; line-height: 1.5; }
+  .record-caption.warn { color: var(--amber); }
+  .record-caption.error { color: var(--red); }
+
+  .processing-step { display: flex; align-items: center; gap: 10px; padding: 9px 0; font-size: 14px; color: var(--ink-faint); transition: color 0.2s ease; }
+  .processing-step.active { color: var(--ink); }
+  .step-marker { width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.15); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; transition: all 0.2s ease; }
+  .processing-step.active .step-marker { border-color: var(--accent); animation: stepSpin 0.9s linear infinite; border-top-color: transparent; }
+  @keyframes stepSpin { to { transform: rotate(360deg); } }
+
+  .preview-card { padding: 20px; }
+  .detail-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .preview-eyebrow { font-family: var(--hud); font-size: 10px; font-weight: 700; letter-spacing: 0.12em; color: var(--accent); background: rgba(0,217,255,0.1); border: 1px solid rgba(0,217,255,0.25); display: inline-block; padding: 3px 9px; border-radius: 6px; }
+  .preview-eyebrow.needs { color: var(--amber); background: rgba(255,180,84,0.1); border-color: rgba(255,180,84,0.25); }
+  .preview-topic { font-size: 17px; font-weight: 600; margin: 10px 0 14px; }
+  .preview-section-label { font-family: var(--hud); font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); margin: 14px 0 6px; }
+  .preview-list { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--ink-dim); line-height: 1.6; }
+  .audio-playback { margin: 4px 0 4px; width: 100%; }
+  .export-actions { display: flex; gap: 18px; margin: 14px 0 4px; padding: 0 2px; }
+  .export-btn {
+    background: none; border: none; color: var(--accent); font-family: var(--hud); font-size: 11px; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; padding: 6px 0;
+    display: flex; align-items: center; gap: 6px; transition: text-shadow 0.15s ease;
+  }
+  .export-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+  .export-btn:hover { text-shadow: 0 0 8px rgba(0,217,255,0.5); }
+  .segment-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 10px; }
+  .segment-chip {
+    font-family: var(--hud); font-size: 10.5px; font-weight: 600; letter-spacing: 0.03em; padding: 6px 10px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); color: var(--ink-dim); cursor: pointer; transition: all 0.12s ease;
+  }
+  .segment-chip.active { background: var(--accent); border-color: var(--accent); color: var(--bg); box-shadow: 0 0 10px rgba(0,217,255,0.35); }
+
+  .section-heading { font-family: var(--hud); font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); margin: 26px 4px 10px; }
+
+  #summaryOutput > *, #guideContent > * { animation: rowIn 0.4s ease both; }
+  #summaryOutput > *:nth-child(1), #guideContent > *:nth-child(1) { animation-delay: 0s; }
+  #summaryOutput > *:nth-child(2), #guideContent > *:nth-child(2) { animation-delay: 0.07s; }
+  #summaryOutput > *:nth-child(3), #guideContent > *:nth-child(3) { animation-delay: 0.14s; }
+  #summaryOutput > *:nth-child(4), #guideContent > *:nth-child(4) { animation-delay: 0.21s; }
+  #summaryOutput > *:nth-child(5), #guideContent > *:nth-child(5) { animation-delay: 0.28s; }
+  #summaryOutput > *:nth-child(6), #guideContent > *:nth-child(6) { animation-delay: 0.35s; }
+  #summaryOutput > *:nth-child(7), #guideContent > *:nth-child(7) { animation-delay: 0.42s; }
+  #summaryOutput > *:nth-child(n+8), #guideContent > *:nth-child(n+8) { animation-delay: 0.48s; }
+
+  .tab-bar { position: absolute; bottom: 0; left: 0; right: 0; z-index: 15; display: flex; justify-content: center; }
+  .tab-bar-inner {
+    width: 100%; max-width: 520px; display: flex;
+    background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 30%), var(--glass-strong);
+    border-top: 1px solid var(--glass-border);
+    backdrop-filter: blur(26px); -webkit-backdrop-filter: blur(26px); padding: 10px 0 max(10px, env(safe-area-inset-bottom));
+  }
+  .tab-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; background: none; border: none; cursor: pointer; color: var(--ink-faint); padding: 4px 0; }
+  .tab-dial {
+    position: relative; width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 50% 40%, rgba(0,217,255,0.10), rgba(10,24,32,0.7) 75%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 1px rgba(255,255,255,0.08);
+    transition: box-shadow 0.2s ease;
+  }
+  .tab-dial-ring { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .tab-ring-ticks { fill: none; stroke: rgba(255,255,255,0.16); stroke-width: 1.3; stroke-dasharray: 1.4 4.6; }
+  .tab-icon { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.7; position: relative; z-index: 2; }
+  .tab-btn.active { color: var(--accent); }
+  .tab-btn.active .tab-dial { box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px rgba(0,217,255,0.45), 0 0 16px rgba(0,217,255,0.4); }
+  .tab-btn.active .tab-ring-ticks { stroke: var(--accent); opacity: 0.8; }
+  .tab-btn.active .tab-icon { filter: drop-shadow(0 0 5px rgba(0,217,255,0.55)); }
+  .tab-label { font-family: var(--hud); font-size: 9px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+
+  .tab-dial.activating { animation: dialActivate 0.55s ease-out; }
+  @keyframes dialActivate {
+    0% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px rgba(0,217,255,0.45), 0 0 0 rgba(0,217,255,0); }
+    35% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 2px rgba(0,217,255,0.75), 0 0 28px rgba(0,217,255,0.65); }
+    100% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px rgba(0,217,255,0.45), 0 0 16px rgba(0,217,255,0.4); }
+  }
+
+  .scan-sweep {
+    position: fixed; left: 0; right: 0; top: 0; height: 160px; z-index: 25; pointer-events: none; opacity: 0;
+    background: linear-gradient(180deg, rgba(0,217,255,0.16) 0%, rgba(0,217,255,0.05) 45%, transparent 100%);
+  }
+  .scan-sweep.playing { animation: scanSweep 0.7s ease-out; }
+  @keyframes scanSweep {
+    0% { transform: translateY(-160px); opacity: 0.9; }
+    70% { opacity: 0.45; }
+    100% { transform: translateY(100vh); opacity: 0; }
+  }
+
+  .hidden { display: none !important; }
+
+  .sync-toast {
+    position: fixed; left: 50%; bottom: 30px; transform: translateX(-50%) translateY(10px);
+    max-width: 90%; padding: 10px 16px; border-radius: 10px; z-index: 60;
+    background: rgba(255,59,48,0.14); border: 1px solid rgba(255,59,48,0.4); backdrop-filter: blur(14px);
+    color: var(--ink); font-size: 12.5px; text-align: center; opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  .sync-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <header class="hud-header">
+    <div class="status-row"><div class="status-dot-wrap"><div class="status-outer-ring"></div><div class="status-ring"></div><div class="status-dot"></div></div><span class="status-text" id="classStatusText">STANDING BY</span></div>
+    <div class="title-row"><h1 class="large-title">JARVIS</h1></div>
+    <div class="hud-readout">
+      <div class="readout-clock"><span class="readout-time">--:--</span><span class="readout-date">---</span></div>
+      <div class="readout-weather">
+        <svg class="weather-icon" viewBox="0 0 24 24"><path d="M7 17a4 4 0 1 1 1.2-7.8A5 5 0 0 1 18 11.5 3.5 3.5 0 0 1 17.5 18H7z"/></svg>
+        <div class="readout-weather-text"><span class="readout-temp">--°</span><span class="readout-loc">LANGHORNE, PA</span></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+  <!-- ===== CLASSES SECTION ===== -->
+  <section class="page-section">
+    <div class="section-title-row">
+      <span class="section-title">Classes</span>
+      <button id="plusBtn" class="plus-btn" type="button" aria-label="Add class">+</button>
+    </div>
+    <div class="section-scroll">
+      <div id="listGroup" class="list-group"><div id="classList"></div></div>
+    </div>
+  </section>
+
+  <!-- ===== RECORD SECTION ===== -->
+  <section class="page-section">
+    <div class="section-title-row">
+      <span class="section-title">Record</span>
+      <span class="mini-status"><span class="status-dot" id="recordStatusDot"></span><span class="status-text" id="recordStatusText">STANDING BY</span></span>
+    </div>
+    <div class="section-scroll">
+      <div id="noClassesNotice" class="list-group hidden">
+        <div class="empty-state"><p>You need at least one class before you can record a lecture.</p><button type="button" class="empty-cta" id="goToClassesBtn">Add a Class</button></div>
+      </div>
+      <div id="recordContent" class="hidden">
+        <div class="class-picker" id="classPicker"></div>
+        <div class="class-timing" id="classTiming"></div>
+        <div class="reactor-zone">
+          <button type="button" id="reactorBtn" class="reactor-btn" aria-label="Start recording">
+            <svg class="reactor-dial" viewBox="0 0 184 184" aria-hidden="true">
+              <circle class="dial-tick-ring" cx="92" cy="92" r="86"/>
+              <circle class="dial-outer-ring" cx="92" cy="92" r="74"/>
+            </svg>
+            <div class="reactor-sweep"></div>
+            <div class="reactor-ring"></div>
+            <svg id="reactorIcon" class="reactor-icon" viewBox="0 0 24 24">
+              <path class="mic-body" d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+              <path class="mic-body" d="M19 11a7 7 0 0 1-14 0H3a9 9 0 0 0 8 8.94V22h2v-2.06A9 9 0 0 0 21 11h-2z"/>
+            </svg>
+          </button>
+          <div class="timer-display" id="timerDisplay">00:00:00</div>
+          <div class="record-caption" id="recordCaption">Pick a class, then tap to start recording.</div>
+        </div>
+
+        <div id="lectureDetail" class="list-group preview-card hidden">
+          <div class="detail-header">
+            <span class="preview-eyebrow" id="detailEyebrow">Needs Transcript</span>
+            <button type="button" id="detailCloseBtn" class="sheet-cancel">Close</button>
+          </div>
+          <div class="row-meta" id="detailMeta"></div>
+          <button type="button" id="playAllBtn" class="export-btn hidden" style="margin: 6px 0 4px;">
+            <svg viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+            Play All Segments
+          </button>
+          <div class="segment-chips" id="segmentChips"></div>
+          <audio class="audio-playback" id="detailAudio" controls></audio>
+          <div class="field-label" style="margin-top:14px;">Transcript</div>
+          <textarea id="transcriptInput" class="detail-textarea" placeholder="Paste or type the lecture transcript here — from Otter, a Voice Memos transcript, or your own notes."></textarea>
+          <button type="button" id="generateSummaryBtn" class="empty-cta action-btn" disabled>Generate Summary</button>
+          <div id="summaryLoading" class="processing-step active hidden" style="margin-top:10px;"><div class="step-marker"></div><span>Summarizing with Claude…</span></div>
+          <div id="summaryError" class="record-caption error hidden"></div>
+          <div id="summaryOutput" class="hidden"></div>
+          <div id="summaryActions" class="export-actions hidden">
+            <button type="button" id="copySummaryBtn" class="export-btn">
+              <svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+              Copy
+            </button>
+            <button type="button" id="downloadSummaryBtn" class="export-btn">
+              <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 19h16"/></svg>
+              Download
+            </button>
+          </div>
+          <button type="button" id="deleteLectureBtn" class="delete-row action-btn">Delete Lecture</button>
+        </div>
+
+        <div class="section-heading">Recent Lectures</div>
+        <div class="list-group"><div id="lectureList"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== GUIDES SECTION ===== -->
+  <section class="page-section">
+    <div class="section-title-row">
+      <span class="section-title">Study Guides</span>
+      <span class="status-text" id="guidesStatusText">STANDING BY</span>
+    </div>
+    <div class="section-scroll">
+      <div id="guidesListView">
+        <div class="list-group"><div id="guidesClassList"></div></div>
+      </div>
+      <div id="guideDetailView" class="hidden">
+        <button type="button" id="guideBackBtn" class="sheet-cancel" style="padding-left:0;">&lsaquo; Back</button>
+        <h2 class="preview-topic" id="guideDetailTitle" style="margin-top:10px;"></h2>
+        <button type="button" id="compileGuideBtn" class="empty-cta action-btn">Compile Study Guide</button>
+        <div id="guideLoading" class="processing-step active hidden" style="margin-top:12px;"><div class="step-marker"></div><span>Compiling with Claude…</span></div>
+        <div id="guideError" class="record-caption error hidden"></div>
+        <div id="guideContent" class="list-group preview-card hidden" style="margin-top:16px;"></div>
+        <div id="guideActions" class="export-actions hidden">
+          <button type="button" id="copyGuideBtn" class="export-btn">
+            <svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+            Copy
+          </button>
+          <button type="button" id="downloadGuideBtn" class="export-btn">
+            <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 19h16"/></svg>
+            Download
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  </main>
+</div>
+
+<div id="scanSweep" class="scan-sweep"></div>
+<div id="syncToast" class="sync-toast hidden"></div>
+
+<div id="sheetOverlay" class="sheet-overlay hidden">
+  <div class="sheet">
+    <div class="hud-corner tl"></div><div class="hud-corner tr"></div>
+    <div class="sheet-handle"></div>
+    <div class="sheet-topbar">
+      <button type="button" id="cancelBtn" class="sheet-cancel">Cancel</button>
+      <span class="sheet-eyebrow" id="sheetTitle">New Class</span>
+      <button type="submit" form="classForm" id="saveBtn" class="sheet-save disabled">Save</button>
+    </div>
+    <form id="classForm">
+      <label><span class="field-label">Class name</span><input type="text" id="fieldName" placeholder="Intro to Psychology" required /></label>
+      <label><span class="field-label">Professor</span><input type="text" id="fieldProfessor" placeholder="Dr. Alvarez" /></label>
+      <label><span class="field-label">Course code</span><input type="text" id="fieldCode" placeholder="PSY 101" /></label>
+      <div class="days-field"><span class="field-label">Meets on</span><div class="day-chips" id="dayChips"></div></div>
+      <div class="time-fields">
+        <label><span class="field-label">Start Time</span><input type="time" id="fieldStartTime" /></label>
+        <label><span class="field-label">End Time</span><input type="time" id="fieldEndTime" /></label>
+      </div>
+      <div class="color-field"><span class="field-label">Tag color</span><div class="color-swatches" id="colorSwatches"></div></div>
+      <button type="button" id="deleteBtn" class="delete-row hidden">Delete Class</button>
+    </form>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  const SUPABASE_URL = "https://ijdsokifuwroqyxyctdb.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlqZHNva2lmdXdyb3F5eHljdGRiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NzQ0MjgsImV4cCI6MjEwMzM1MDQyOH0.bf75JxJBMkkMlurmI8qsWj_UOZtdqggrBHGHahzC3_E";
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const SWATCHES = ["#4fd8ff", "#b98eff", "#63e6be", "#ffb454", "#ff6fb0", "#5e9eff"];
+
+  let classes = [];
+  let lectures = [];
+  let studyGuides = {}; // classId -> { content, generatedAt, sourceLectureIds }
+  let editingId = null;
+  let selectedDays = new Set();
+  let selectedColor = SWATCHES[0];
+
+  document.getElementById("goToClassesBtn").addEventListener("click", () => {
+    document.querySelector(".page-section").scrollIntoView({ behavior: "smooth" });
+  });
+
+  function playScanSweep() {
+    const el = document.getElementById("scanSweep");
+    el.classList.remove("playing");
+    void el.offsetWidth;
+    el.classList.add("playing");
+  }
+
+  // Keeps the Record and Guides sections' class pickers/lists in sync with the Classes
+  // section — needed now that all three are visible at once instead of one tab at a time.
+  function renderAll() {
+    renderClassList();
+    renderRecordScreen();
+    renderGuidesScreen();
+  }
+
+  function uid() { return crypto.randomUUID(); }
+  function escapeHtml(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+  // Updates an element's text and gives it a brief HUD flash — but only when the value actually
+  // changes, so status readouts react to real state changes instead of animating on every tick.
+  function flashText(el, newText) {
+    if (!el || el.textContent === newText) return;
+    el.textContent = newText;
+    el.classList.remove("value-flash");
+    void el.offsetWidth;
+    el.classList.add("value-flash");
+  }
+
+  // ================= SUPABASE PERSISTENCE =================
+  // Local arrays (classes/lectures/studyGuides) remain the source of truth for rendering —
+  // every existing render function keeps working untouched. These helpers sync each mutation
+  // to Supabase in the background ("local-first"): the UI updates instantly, the write happens
+  // async, and errors surface as a small non-blocking toast rather than breaking the UI.
+
+  function showSyncError(msg) {
+    const el = document.getElementById("syncToast");
+    el.textContent = "Sync issue: " + msg;
+    el.classList.remove("hidden");
+    el.classList.remove("show");
+    void el.offsetWidth;
+    el.classList.add("show");
+    clearTimeout(showSyncError._t);
+    showSyncError._t = setTimeout(() => el.classList.remove("show"), 4000);
+  }
+
+  function classToRow(c) {
+    return {
+      id: c.id, name: c.name, professor: c.professor || null, code: c.code || null,
+      start_time: c.startTime || null, end_time: c.endTime || null, days: c.days || [], color: c.color
+    };
+  }
+  function rowToClass(r) {
+    return {
+      id: r.id, name: r.name, professor: r.professor || "", code: r.code || "",
+      startTime: r.start_time ? r.start_time.slice(0, 5) : "", endTime: r.end_time ? r.end_time.slice(0, 5) : "",
+      days: r.days || [], color: r.color
+    };
+  }
+  function rowToLecture(r) {
+    return {
+      id: r.id, classId: r.class_id, date: new Date(r.recorded_at), durationSec: r.duration_sec, status: r.status,
+      transcript: r.transcript || "", summary: r.summary || null,
+      segments: (r.lecture_segments || [])
+        .slice()
+        .sort((a, b) => a.segment_index - b.segment_index)
+        .map(s => ({ index: s.segment_index, storagePath: s.storage_path, durationSec: s.duration_sec, audioUrl: null }))
+    };
+  }
+
+  async function loadAllData() {
+    try {
+      const [{ data: classRows, error: cErr }, { data: lectureRows, error: lErr }, { data: guideRows, error: gErr }] = await Promise.all([
+        sb.from("classes").select("*").order("created_at"),
+        sb.from("lectures").select("*, lecture_segments(*)").order("recorded_at", { ascending: false }),
+        sb.from("study_guides").select("*").order("generated_at", { ascending: false })
+      ]);
+      if (cErr) throw cErr;
+      if (lErr) throw lErr;
+      if (gErr) throw gErr;
+      classes = (classRows || []).map(rowToClass);
+      lectures = (lectureRows || []).map(rowToLecture);
+      studyGuides = {};
+      (guideRows || []).forEach(row => {
+        if (!studyGuides[row.class_id]) {
+          studyGuides[row.class_id] = { content: row.content, generatedAt: new Date(row.generated_at), sourceLectureIds: row.source_lecture_ids || [] };
+        }
+      });
+    } catch (err) {
+      showSyncError("couldn't load saved data — " + err.message);
+    }
+  }
+
+  async function persistClassInsert(cls) {
+    const { error } = await sb.from("classes").insert(classToRow(cls));
+    if (error) showSyncError("class didn't save — " + error.message);
+  }
+  async function persistClassUpdate(cls) {
+    const { error } = await sb.from("classes").update(classToRow(cls)).eq("id", cls.id);
+    if (error) showSyncError("class update didn't save — " + error.message);
+  }
+  async function persistClassDelete(id) {
+    const { error } = await sb.from("classes").delete().eq("id", id);
+    if (error) showSyncError("class delete didn't save — " + error.message);
+  }
+
+  async function persistLectureInsert(lecture) {
+    const { error } = await sb.from("lectures").insert({
+      id: lecture.id, class_id: lecture.classId, recorded_at: lecture.date.toISOString(),
+      duration_sec: lecture.durationSec, status: lecture.status, transcript: lecture.transcript || null, summary: lecture.summary
+    });
+    if (error) showSyncError("lecture didn't save — " + error.message);
+  }
+  async function persistLectureUpdate(lecture) {
+    const { error } = await sb.from("lectures")
+      .update({ status: lecture.status, transcript: lecture.transcript || null, summary: lecture.summary })
+      .eq("id", lecture.id);
+    if (error) showSyncError("lecture update didn't save — " + error.message);
+  }
+  async function persistLectureDelete(lecture) {
+    const paths = (lecture.segments || []).map(s => s.storagePath).filter(Boolean);
+    if (paths.length) await sb.storage.from("lecture-audio").remove(paths);
+    const { error } = await sb.from("lectures").delete().eq("id", lecture.id);
+    if (error) showSyncError("lecture delete didn't save — " + error.message);
+  }
+
+  async function persistSegment(lectureId, seg, blob) {
+    try {
+      const path = lectureId + "/segment-" + seg.index + ".webm";
+      const { error: upErr } = await sb.storage.from("lecture-audio").upload(path, blob, { contentType: blob.type || "audio/webm" });
+      if (upErr) throw upErr;
+      const { error: dbErr } = await sb.from("lecture_segments").insert({
+        lecture_id: lectureId, segment_index: seg.index, storage_path: path, duration_sec: seg.durationSec
+      });
+      if (dbErr) throw dbErr;
+      seg.storagePath = path;
+    } catch (err) {
+      showSyncError("audio segment didn't upload — " + err.message);
+    }
+  }
+
+  async function persistGuideInsert(classId, guide) {
+    const { error } = await sb.from("study_guides").insert({
+      class_id: classId, content: guide.content, source_lecture_ids: guide.sourceLectureIds, generated_at: guide.generatedAt.toISOString()
+    });
+    if (error) showSyncError("study guide didn't save — " + error.message);
+  }
+
+  // Resolves a segment's playable URL: local blob URL if this session recorded it,
+  // otherwise a fresh signed URL fetched from Storage.
+  async function resolveSegmentUrl(seg) {
+    if (seg.audioUrl) return seg.audioUrl;
+    const { data, error } = await sb.storage.from("lecture-audio").createSignedUrl(seg.storagePath, 3600);
+    if (error) { showSyncError("couldn't load audio — " + error.message); return null; }
+    return data.signedUrl;
+  }
+
+  // ================= LIVE CLOCK + WEATHER READOUT =================
+  function updateClock() {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    const dateStr = now.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    document.querySelectorAll(".readout-time").forEach(el => flashText(el, timeStr));
+    document.querySelectorAll(".readout-date").forEach(el => flashText(el, dateStr));
+  }
+  updateClock();
+  setInterval(() => { updateClock(); updateClassTiming(); updateLiveBadges(); }, 1000);
+
+  // ---- Class end/start timer, computed from each class's days + start/end time ----
+  const DAY_INDEX = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+
+  function formatTime12(hhmm) {
+    if (!hhmm) return "";
+    const [h, m] = hhmm.split(":").map(Number);
+    const period = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return h12 + ":" + String(m).padStart(2, "0") + " " + period;
+  }
+
+  function timeToToday(hhmm, base) {
+    const [h, m] = hhmm.split(":").map(Number);
+    const d = new Date(base);
+    d.setHours(h, m, 0, 0);
+    return d;
+  }
+
+  function formatCountdown(ms) {
+    const totalSec = Math.max(0, Math.floor(ms / 1000));
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    return (h > 0 ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(s).padStart(2, "0");
+  }
+
+  function getClassTiming(cls) {
+    if (!cls.startTime || !cls.endTime || !cls.days || cls.days.length === 0) return null;
+    const now = new Date();
+    const todayIdx = now.getDay();
+    const dayIndices = cls.days.map(d => DAY_INDEX[d]).filter(v => v !== undefined);
+    if (dayIndices.length === 0) return null;
+
+    if (dayIndices.includes(todayIdx)) {
+      const start = timeToToday(cls.startTime, now);
+      const end = timeToToday(cls.endTime, now);
+      if (now >= start && now < end) return { state: "in-session", target: end };
+      if (now < start) return { state: "upcoming-today", target: start };
+    }
+    for (let offset = 1; offset <= 7; offset++) {
+      const checkIdx = (todayIdx + offset) % 7;
+      if (dayIndices.includes(checkIdx)) {
+        const target = timeToToday(cls.startTime, now);
+        target.setDate(target.getDate() + offset);
+        return { state: "scheduled", target };
+      }
+    }
+    return null;
+  }
+
+  function updateClassTiming() {
+    const el = document.getElementById("classTiming");
+    if (!el) return;
+    const cls = selectedClassId ? classes.find(c => c.id === selectedClassId) : null;
+    if (!cls) { el.textContent = ""; el.classList.remove("live"); return; }
+    const timing = getClassTiming(cls);
+    if (!timing) { el.textContent = ""; el.classList.remove("live"); return; }
+    const diff = timing.target - new Date();
+    if (timing.state === "in-session") {
+      flashText(el, "In Session · Ends in " + formatCountdown(diff));
+      el.classList.add("live");
+    } else if (timing.state === "upcoming-today") {
+      flashText(el, "Starts in " + formatCountdown(diff));
+      el.classList.remove("live");
+    } else {
+      const dayLabel = timing.target.toLocaleDateString(undefined, { weekday: "short" });
+      flashText(el, "Next: " + dayLabel + " · " + formatTime12(cls.startTime));
+      el.classList.remove("live");
+    }
+  }
+
+  // Snapshot pulled for Langhorne, PA at build time — not a live feed. Wiring a real weather
+  // API would be needed for this to stay current once deployed.
+  const WEATHER_SNAPSHOT = { temp: 82, condition: "Mostly Cloudy" };
+  document.querySelectorAll(".readout-temp").forEach(el => el.textContent = WEATHER_SNAPSHOT.temp + "°");
+
+  // ================= CLAUDE API (via the claude-proxy Edge Function — works both here and once deployed) =================
+  async function callClaude(promptText, maxTokens) {
+    const { data, error } = await sb.functions.invoke("claude-proxy", {
+      body: { prompt: promptText, maxTokens: maxTokens || 1500 }
+    });
+    if (error) throw new Error(error.message || "Claude request failed");
+    if (data && data.error) throw new Error(data.error);
+    if (!data || !data.text) throw new Error("Empty response from Claude");
+    return data.text;
+  }
+
+  function buildSummaryPrompt(transcript) {
+    return "You are summarizing a college lecture transcript for exam prep.\n\nTranscript:\n" + transcript +
+      "\n\nRespond ONLY with a raw JSON object and nothing else — no preamble, no markdown code fences. The JSON must have these keys:\n" +
+      "- topic: one-line description of the lecture's main subject\n" +
+      "- keyConcepts: array of up to 5 objects {concept, explanation}\n" +
+      "- definitions: array of up to 5 objects {term, definition}\n" +
+      "- workedExamples: array of up to 3 objects {problem, solution}\n" +
+      "- testHints: array of up to 5 strings — anything the professor flagged as important, likely tested, or repeated for emphasis\n" +
+      "- openQuestions: array of up to 3 strings\n\n" +
+      "Only include what's actually in the transcript. Use empty arrays for categories with nothing relevant. Keep entries concise.";
+  }
+
+  function buildGuidePrompt(className, lectureSummaries) {
+    const joined = lectureSummaries.map((s, i) =>
+      "Lecture " + (i + 1) + " (" + s.date + ")\nTopic: " + s.topic +
+      "\nKey concepts: " + (s.keyConcepts.map(k => k.concept).join(", ") || "none noted") +
+      "\nTest hints: " + (s.testHints.join("; ") || "none noted")
+    ).join("\n\n");
+    return "You are building a study guide for the class \"" + className + "\" from a series of lecture summaries.\n\n" + joined +
+      "\n\nSynthesize these into a single study guide in markdown, organized by TOPIC rather than by date:\n" +
+      "- Merge concepts that appear across multiple lectures into one entry, noting which lectures covered it\n" +
+      "- Build a consolidated glossary of terms\n" +
+      "- Pull all test hints into a dedicated \"Likely to be tested\" section\n" +
+      "- Flag concepts that only appeared once but seemed important\n" +
+      "- Keep it scannable: headers, bullets, no dense paragraphs\n\n" +
+      "Respond with the study guide in markdown only, no preamble.";
+  }
+
+  function renderMarkdownLite(md) {
+    const lines = md.split("\n");
+    let html = "", inList = false;
+    lines.forEach(line => {
+      const t = line.trim();
+      if (/^#{1,3}\s+/.test(t)) {
+        if (inList) { html += "</ul>"; inList = false; }
+        html += '<div class="preview-section-label">' + escapeHtml(t.replace(/^#{1,3}\s+/, "")) + "</div>";
+      } else if (/^[-*]\s+/.test(t)) {
+        if (!inList) { html += '<ul class="preview-list">'; inList = true; }
+        html += "<li>" + escapeHtml(t.replace(/^[-*]\s+/, "")) + "</li>";
+      } else if (t === "") {
+        if (inList) { html += "</ul>"; inList = false; }
+      } else {
+        if (inList) { html += "</ul>"; inList = false; }
+        html += '<p style="font-size:13.5px;color:var(--ink-dim);line-height:1.6;margin:6px 0;">' + escapeHtml(t) + "</p>";
+      }
+    });
+    if (inList) html += "</ul>";
+    return html;
+  }
+
+  // ================= CLASSES =================
+  const listEl = document.getElementById("classList");
+  const listGroup = document.getElementById("listGroup");
+  const overlay = document.getElementById("sheetOverlay");
+  const form = document.getElementById("classForm");
+  const sheetTitle = document.getElementById("sheetTitle");
+  const deleteBtn = document.getElementById("deleteBtn");
+  const saveBtn = document.getElementById("saveBtn");
+  const dayChipsEl = document.getElementById("dayChips");
+  const colorSwatchesEl = document.getElementById("colorSwatches");
+  const classStatusText = document.getElementById("classStatusText");
+  const nameField = document.getElementById("fieldName");
+
+  function updateClassStatus() {
+    const n = classes.length;
+    flashText(classStatusText, n === 0 ? "STANDING BY" : n === 1 ? "1 CLASS TRACKED" : n + " CLASSES TRACKED");
+  }
+
+  function spawnLockOn(originEl) {
+    const rect = originEl.getBoundingClientRect();
+    const ring = document.createElement("div");
+    ring.className = "lock-pulse";
+    ring.style.left = rect.left + "px";
+    ring.style.top = rect.top + "px";
+    document.body.appendChild(ring);
+    ring.addEventListener("animationend", () => ring.remove());
+  }
+
+  function renderDayChips() {
+    dayChipsEl.innerHTML = "";
+    DAY_LABELS.forEach(day => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "day-chip" + (selectedDays.has(day) ? " active" : "");
+      chip.textContent = day.slice(0, 1);
+      chip.title = day;
+      chip.addEventListener("click", () => { if (selectedDays.has(day)) selectedDays.delete(day); else selectedDays.add(day); renderDayChips(); });
+      dayChipsEl.appendChild(chip);
+    });
+  }
+
+  function renderSwatches() {
+    colorSwatchesEl.innerHTML = "";
+    SWATCHES.forEach(color => {
+      const sw = document.createElement("button");
+      sw.type = "button";
+      sw.className = "swatch" + (color === selectedColor ? " active" : "");
+      sw.style.background = color;
+      sw.style.boxShadow = "0 0 10px " + color + "80";
+      sw.addEventListener("click", () => { selectedColor = color; renderSwatches(); });
+      colorSwatchesEl.appendChild(sw);
+    });
+  }
+
+  function renderClassList() {
+    listEl.innerHTML = "";
+    updateClassStatus();
+    if (classes.length === 0) {
+      listGroup.style.background = "transparent"; listGroup.style.border = "none"; listGroup.style.backdropFilter = "none"; listGroup.style.boxShadow = "none";
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.innerHTML = '<p>No classes tracked yet — add your first below.</p>';
+      const cta = document.createElement("button");
+      cta.type = "button"; cta.className = "empty-cta"; cta.textContent = "New Class";
+      cta.addEventListener("click", () => { spawnLockOn(cta); setTimeout(() => openSheet(null), 140); });
+      empty.appendChild(cta);
+      listEl.appendChild(empty);
+      return;
+    }
+    listGroup.style.background = ""; listGroup.style.border = ""; listGroup.style.backdropFilter = ""; listGroup.style.boxShadow = "";
+    classes.forEach((cls, i) => {
+      const row = document.createElement("div");
+      row.className = "class-row";
+      row.dataset.classId = cls.id;
+      row.style.animationDelay = (i * 0.05) + "s";
+      const dot = document.createElement("div");
+      dot.className = "row-dot"; dot.style.background = cls.color; dot.style.boxShadow = "0 0 8px " + cls.color + "90";
+      row.addEventListener("click", () => { spawnLockOn(dot); setTimeout(() => openSheet(cls.id), 140); });
+      const body = document.createElement("div"); body.className = "row-body";
+      const top = document.createElement("div"); top.className = "row-top";
+      const name = document.createElement("div"); name.className = "row-name"; name.textContent = cls.name;
+      top.appendChild(name);
+      if (cls.code) { const code = document.createElement("div"); code.className = "row-code"; code.textContent = cls.code; top.appendChild(code); }
+      body.appendChild(top);
+      if (cls.professor) { const prof = document.createElement("div"); prof.className = "row-professor"; prof.textContent = cls.professor; body.appendChild(prof); }
+      if (cls.days.length || cls.startTime) { const meta = document.createElement("div"); meta.className = "row-meta"; const timeRange = (cls.startTime && cls.endTime) ? (formatTime12(cls.startTime) + "–" + formatTime12(cls.endTime)) : ""; meta.textContent = [cls.days.join(" "), timeRange].filter(Boolean).join(" · "); body.appendChild(meta); }
+      const liveBadge = document.createElement("div");
+      liveBadge.className = "status-chip live-chip hidden";
+      liveBadge.textContent = "In Session";
+      const chevron = document.createElement("div"); chevron.className = "chevron"; chevron.textContent = "\u203A";
+      row.appendChild(dot); row.appendChild(body); row.appendChild(liveBadge); row.appendChild(chevron);
+      listEl.appendChild(row);
+    });
+    updateLiveBadges();
+  }
+
+  function updateLiveBadges() {
+    listEl.querySelectorAll(".class-row").forEach(row => {
+      const cls = classes.find(c => c.id === row.dataset.classId);
+      const badge = row.querySelector(".live-chip");
+      if (!cls || !badge) return;
+      const timing = getClassTiming(cls);
+      badge.classList.toggle("hidden", !(timing && timing.state === "in-session"));
+    });
+  }
+
+  function checkSaveEnabled() { saveBtn.classList.toggle("disabled", nameField.value.trim().length === 0); }
+
+  function openSheet(id) {
+    editingId = id;
+    const existing = id ? classes.find(c => c.id === id) : null;
+    sheetTitle.textContent = existing ? "Edit Class" : "New Class";
+    nameField.value = existing ? existing.name : "";
+    document.getElementById("fieldProfessor").value = existing ? existing.professor : "";
+    document.getElementById("fieldCode").value = existing ? existing.code : "";
+    document.getElementById("fieldStartTime").value = existing ? (existing.startTime || "") : "";
+    document.getElementById("fieldEndTime").value = existing ? (existing.endTime || "") : "";
+    selectedDays = new Set(existing ? existing.days : []);
+    selectedColor = existing ? existing.color : SWATCHES[classes.length % SWATCHES.length];
+    deleteBtn.classList.toggle("hidden", !existing);
+    deleteBtn.classList.remove("confirming");
+    deleteBtn.textContent = "Delete Class";
+    renderDayChips(); renderSwatches(); checkSaveEnabled();
+    overlay.classList.remove("hidden");
+    setTimeout(() => nameField.focus(), 50);
+  }
+
+  function closeSheet() { overlay.classList.add("hidden"); editingId = null; form.reset(); }
+
+  nameField.addEventListener("input", checkSaveEnabled);
+
+  form.addEventListener("submit", e => {
+    e.preventDefault();
+    const name = nameField.value.trim();
+    if (!name) return;
+    const data = {
+      name,
+      professor: document.getElementById("fieldProfessor").value.trim(),
+      code: document.getElementById("fieldCode").value.trim(),
+      startTime: document.getElementById("fieldStartTime").value,
+      endTime: document.getElementById("fieldEndTime").value,
+      days: Array.from(selectedDays),
+      color: selectedColor
+    };
+    if (editingId) {
+      const idx = classes.findIndex(c => c.id === editingId);
+      classes[idx] = { ...classes[idx], ...data };
+      persistClassUpdate(classes[idx]);
+    } else {
+      const newClass = { id: uid(), ...data };
+      classes.push(newClass);
+      persistClassInsert(newClass);
+    }
+    renderAll();
+    closeSheet();
+  });
+
+  deleteBtn.addEventListener("click", () => {
+    if (!deleteBtn.classList.contains("confirming")) {
+      deleteBtn.classList.add("confirming");
+      deleteBtn.textContent = "Tap again to confirm";
+      return;
+    }
+    lectures = lectures.filter(l => l.classId !== editingId);
+    delete studyGuides[editingId];
+    classes = classes.filter(c => c.id !== editingId);
+    persistClassDelete(editingId);
+    renderAll();
+    closeSheet();
+  });
+
+  document.getElementById("cancelBtn").addEventListener("click", closeSheet);
+  document.getElementById("plusBtn").addEventListener("click", (e) => { spawnLockOn(e.currentTarget); setTimeout(() => openSheet(null), 140); });
+  overlay.addEventListener("click", e => { if (e.target === overlay) closeSheet(); });
+
+  // ================= RECORD =================
+  const noClassesNotice = document.getElementById("noClassesNotice");
+  const recordContent = document.getElementById("recordContent");
+  const classPicker = document.getElementById("classPicker");
+  const reactorBtn = document.getElementById("reactorBtn");
+  const timerDisplay = document.getElementById("timerDisplay");
+  const recordCaption = document.getElementById("recordCaption");
+  const recordStatusText = document.getElementById("recordStatusText");
+  const recordStatusDot = document.getElementById("recordStatusDot");
+  const lectureListEl = document.getElementById("lectureList");
+  const lectureDetail = document.getElementById("lectureDetail");
+  const detailEyebrow = document.getElementById("detailEyebrow");
+  const detailMeta = document.getElementById("detailMeta");
+  const detailAudio = document.getElementById("detailAudio");
+  const transcriptInput = document.getElementById("transcriptInput");
+  const generateSummaryBtn = document.getElementById("generateSummaryBtn");
+  const summaryLoading = document.getElementById("summaryLoading");
+  const summaryError = document.getElementById("summaryError");
+  const summaryOutput = document.getElementById("summaryOutput");
+
+  let selectedClassId = null;
+  let activeLectureId = null;
+  let playAllMode = false, currentSegmentIndex = 0;
+  let mediaStream = null, mediaRecorder = null, recordedChunks = [], recordStartTime = null, timerInterval = null, wakeLockSentinel = null, isRecording = false;
+  let currentSegments = [], segmentStartTime = null, segmentTimer = null;
+  // 30s here so chunking is actually visible while testing. For real deployment this should be
+  // ~5 minutes (5 * 60 * 1000) to match the upload-chunking plan noted in the handoff doc —
+  // each segment is a fully independent, playable audio file, ready to upload on its own.
+  const SEGMENT_MS = 30 * 1000;
+
+  function renderRecordScreen() {
+    const hasClasses = classes.length > 0;
+    noClassesNotice.classList.toggle("hidden", hasClasses);
+    recordContent.classList.toggle("hidden", !hasClasses);
+    if (!hasClasses) return;
+    if (!selectedClassId || !classes.find(c => c.id === selectedClassId)) selectedClassId = classes[0].id;
+    renderClassPicker();
+    renderLectureList();
+    updateClassTiming();
+  }
+
+  function renderClassPicker() {
+    classPicker.innerHTML = "";
+    classes.forEach(cls => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "picker-chip" + (cls.id === selectedClassId ? " active" : "");
+      chip.disabled = isRecording;
+      const dot = document.createElement("span");
+      dot.className = "dot"; dot.style.background = cls.color; dot.style.boxShadow = "0 0 6px " + cls.color + "90";
+      chip.appendChild(dot);
+      chip.appendChild(document.createTextNode(cls.name));
+      chip.addEventListener("click", () => { selectedClassId = cls.id; renderClassPicker(); updateClassTiming(); });
+      classPicker.appendChild(chip);
+    });
+  }
+
+  function formatTime(totalSec) {
+    const h = String(Math.floor(totalSec / 3600)).padStart(2, "0");
+    const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2, "0");
+    const s = String(totalSec % 60).padStart(2, "0");
+    return h + ":" + m + ":" + s;
+  }
+
+  async function requestWakeLock() {
+    try {
+      if (!("wakeLock" in navigator)) {
+        recordCaption.textContent = "Recording — Wake Lock isn't supported here, so keep the screen on manually.";
+        recordCaption.className = "record-caption warn";
+        return;
+      }
+      wakeLockSentinel = await navigator.wakeLock.request("screen");
+      wakeLockSentinel.addEventListener("release", () => {});
+    } catch (err) {
+      recordCaption.textContent = "Recording — couldn't lock the screen awake. Keep the app open.";
+      recordCaption.className = "record-caption warn";
+    }
+  }
+  function releaseWakeLock() { if (wakeLockSentinel) { wakeLockSentinel.release().catch(() => {}); wakeLockSentinel = null; } }
+
+  document.addEventListener("visibilitychange", async () => {
+    if (isRecording && document.visibilityState === "visible" && "wakeLock" in navigator && !wakeLockSentinel) await requestWakeLock();
+  });
+
+  reactorBtn.addEventListener("click", () => { if (!isRecording) startRecording(); else stopRecording(); });
+
+  async function startRecording() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      recordCaption.textContent = "Microphone capture needs a secure context (HTTPS). This will work once deployed to GitHub Pages.";
+      recordCaption.className = "record-caption error";
+      return;
+    }
+    lectureDetail.classList.add("hidden");
+    try { mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch (err) {
+      recordCaption.textContent = "Microphone access was denied or unavailable.";
+      recordCaption.className = "record-caption error";
+      return;
+    }
+    currentSegments = [];
+    recordStartTime = Date.now();
+    isRecording = true;
+    startNewSegmentRecorder();
+    reactorBtn.classList.add("recording");
+    recordStatusDot.classList.add("recording");
+    flashText(recordStatusText, "RECORDING");
+    recordCaption.textContent = "Recording — captured in " + Math.round(SEGMENT_MS / 1000) + "s segments locally, ready to sync once uploaded.";
+    recordCaption.className = "record-caption";
+    renderClassPicker();
+    timerInterval = setInterval(() => { flashText(timerDisplay, formatTime(Math.floor((Date.now() - recordStartTime) / 1000))); }, 1000);
+    segmentTimer = setInterval(() => {
+      if (mediaRecorder && mediaRecorder.state === "recording") mediaRecorder.stop();
+    }, SEGMENT_MS);
+    await requestWakeLock();
+  }
+
+  function startNewSegmentRecorder() {
+    recordedChunks = [];
+    segmentStartTime = Date.now();
+    mediaRecorder = new MediaRecorder(mediaStream);
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+      const segDurationSec = Math.max(1, Math.round((Date.now() - segmentStartTime) / 1000));
+      currentSegments.push({ index: currentSegments.length + 1, audioUrl: URL.createObjectURL(blob), durationSec: segDurationSec, blob });
+      if (isRecording) startNewSegmentRecorder();
+      else finalizeRecording();
+    };
+    mediaRecorder.start();
+  }
+
+  function stopRecording() {
+    if (!mediaRecorder) return;
+    isRecording = false;
+    clearInterval(segmentTimer);
+    clearInterval(timerInterval);
+    releaseWakeLock();
+    reactorBtn.classList.remove("recording");
+    recordStatusDot.classList.remove("recording");
+    flashText(recordStatusText, "STANDING BY");
+    recordCaption.textContent = "Pick a class, then tap to start recording.";
+    renderClassPicker();
+    if (mediaRecorder.state === "recording") mediaRecorder.stop();
+    mediaStream.getTracks().forEach(t => t.stop());
+  }
+
+  function finalizeRecording() {
+    const durationSec = Math.floor((Date.now() - recordStartTime) / 1000);
+    finishRecording(currentSegments, durationSec);
+  }
+
+  function finishRecording(segments, durationSec) {
+    const lecture = { id: uid(), classId: selectedClassId, date: new Date(), durationSec, status: "needs_transcript", segments, transcript: "", summary: null };
+    lectures.unshift(lecture);
+    timerDisplay.textContent = "00:00:00";
+    renderLectureList();
+    renderGuidesScreen();
+    openLectureDetail(lecture.id);
+    persistLectureInsert(lecture).then(() => {
+      segments.forEach(seg => persistSegment(lecture.id, seg, seg.blob));
+    });
+  }
+
+  function openLectureDetail(id) {
+    activeLectureId = id;
+    const lecture = lectures.find(l => l.id === id);
+    const cls = classes.find(c => c.id === lecture.classId);
+    detailMeta.textContent = (cls ? cls.name : "") + " · " + lecture.date.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + " · " + formatTime(lecture.durationSec).replace(/^00:/, "");
+    renderSegmentChips(lecture);
+    transcriptInput.value = lecture.transcript || "";
+    updateGenerateBtnState();
+    generateSummaryBtn.textContent = lecture.summary ? "Regenerate Summary" : "Generate Summary";
+    detailEyebrow.className = "preview-eyebrow" + (lecture.summary ? "" : " needs");
+    flashText(detailEyebrow, lecture.summary ? "Generated From Transcript" : "Needs Transcript");
+    summaryError.classList.add("hidden");
+    summaryLoading.classList.add("hidden");
+    if (lecture.summary) renderSummaryOutput(lecture.summary);
+    else { summaryOutput.classList.add("hidden"); summaryOutput.innerHTML = ""; document.getElementById("summaryActions").classList.add("hidden"); }
+    deleteLectureBtn.classList.remove("confirming");
+    deleteLectureBtn.textContent = "Delete Lecture";
+    lectureDetail.classList.remove("hidden");
+  }
+
+  function renderSegmentChips(lecture) {
+    const segmentChipsEl = document.getElementById("segmentChips");
+    const playAllBtn = document.getElementById("playAllBtn");
+    segmentChipsEl.innerHTML = "";
+    playAllMode = false;
+    currentSegmentIndex = 0;
+    if (!lecture.segments || lecture.segments.length === 0) { detailAudio.removeAttribute("src"); playAllBtn.classList.add("hidden"); return; }
+    playAllBtn.classList.toggle("hidden", lecture.segments.length < 2);
+    lecture.segments.forEach((seg, i) => {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "segment-chip" + (i === 0 ? " active" : "");
+      chip.textContent = "Segment " + seg.index + " · " + formatTime(seg.durationSec).replace(/^00:/, "");
+      chip.addEventListener("click", async () => {
+        playAllMode = false;
+        currentSegmentIndex = i;
+        segmentChipsEl.querySelectorAll(".segment-chip").forEach(c => c.classList.remove("active"));
+        chip.classList.add("active");
+        const url = await resolveSegmentUrl(seg);
+        if (url) detailAudio.src = url;
+      });
+      segmentChipsEl.appendChild(chip);
+    });
+    resolveSegmentUrl(lecture.segments[0]).then(url => { if (url) detailAudio.src = url; });
+  }
+
+  async function playSegmentAt(lecture, index) {
+    if (!lecture.segments || index >= lecture.segments.length) { playAllMode = false; return; }
+    currentSegmentIndex = index;
+    document.querySelectorAll("#segmentChips .segment-chip").forEach((c, i) => c.classList.toggle("active", i === index));
+    const url = await resolveSegmentUrl(lecture.segments[index]);
+    if (!url) { playAllMode = false; return; }
+    detailAudio.src = url;
+    detailAudio.play().catch(() => {});
+  }
+
+  document.getElementById("playAllBtn").addEventListener("click", () => {
+    const lecture = lectures.find(l => l.id === activeLectureId);
+    if (!lecture || !lecture.segments || lecture.segments.length === 0) return;
+    playAllMode = true;
+    playSegmentAt(lecture, 0);
+  });
+
+  detailAudio.addEventListener("ended", () => {
+    if (!playAllMode) return;
+    const lecture = lectures.find(l => l.id === activeLectureId);
+    if (!lecture) { playAllMode = false; return; }
+    playSegmentAt(lecture, currentSegmentIndex + 1);
+  });
+
+  function updateGenerateBtnState() { generateSummaryBtn.disabled = transcriptInput.value.trim().length === 0; }
+  transcriptInput.addEventListener("input", updateGenerateBtnState);
+
+  document.getElementById("detailCloseBtn").addEventListener("click", () => lectureDetail.classList.add("hidden"));
+
+  document.getElementById("copySummaryBtn").addEventListener("click", (e) => {
+    const lecture = lectures.find(l => l.id === activeLectureId);
+    if (lecture && lecture.summary) copyToClipboard(summaryToText(lecture.summary), e.currentTarget);
+  });
+  document.getElementById("downloadSummaryBtn").addEventListener("click", () => {
+    const lecture = lectures.find(l => l.id === activeLectureId);
+    if (lecture && lecture.summary) downloadText(slugify(lecture.summary.topic) + "-summary.md", summaryToText(lecture.summary));
+  });
+
+  const deleteLectureBtn = document.getElementById("deleteLectureBtn");
+  deleteLectureBtn.addEventListener("click", () => {
+    if (!deleteLectureBtn.classList.contains("confirming")) {
+      deleteLectureBtn.classList.add("confirming");
+      deleteLectureBtn.textContent = "Tap again to confirm";
+      return;
+    }
+    const lecture = lectures.find(l => l.id === activeLectureId);
+    if (lecture && lecture.segments) lecture.segments.forEach(seg => { if (seg.audioUrl) URL.revokeObjectURL(seg.audioUrl); });
+    lectures = lectures.filter(l => l.id !== activeLectureId);
+    if (lecture) persistLectureDelete(lecture);
+    lectureDetail.classList.add("hidden");
+    activeLectureId = null;
+    renderLectureList();
+    renderGuidesScreen();
+  });
+
+  function renderSummaryOutput(summary) {
+    let html = '<p class="preview-topic" style="margin-top:4px;">' + escapeHtml(summary.topic) + "</p>";
+    function section(label, items, render) {
+      if (!items || items.length === 0) return "";
+      return '<div class="preview-section-label">' + label + '</div><ul class="preview-list">' + items.map(render).join("") + "</ul>";
+    }
+    html += section("Key Concepts", summary.keyConcepts, c => "<li><strong>" + escapeHtml(c.concept) + ":</strong> " + escapeHtml(c.explanation) + "</li>");
+    html += section("Definitions", summary.definitions, d => "<li><strong>" + escapeHtml(d.term) + ":</strong> " + escapeHtml(d.definition) + "</li>");
+    html += section("Worked Examples", summary.workedExamples, w => "<li><strong>" + escapeHtml(w.problem) + "</strong> — " + escapeHtml(w.solution) + "</li>");
+    html += section("Likely to Be Tested", summary.testHints, h => "<li>" + escapeHtml(h) + "</li>");
+    html += section("Open Questions", summary.openQuestions, q => "<li>" + escapeHtml(q) + "</li>");
+    summaryOutput.innerHTML = html;
+    summaryOutput.classList.remove("hidden");
+    document.getElementById("summaryActions").classList.remove("hidden");
+  }
+
+  function summaryToText(summary) {
+    let out = "# " + summary.topic + "\n\n";
+    function section(title, items, formatter) {
+      if (!items || items.length === 0) return "";
+      return "## " + title + "\n" + items.map(formatter).join("\n") + "\n\n";
+    }
+    out += section("Key Concepts", summary.keyConcepts, c => "- **" + c.concept + ":** " + c.explanation);
+    out += section("Definitions", summary.definitions, d => "- **" + d.term + ":** " + d.definition);
+    out += section("Worked Examples", summary.workedExamples, w => "- **" + w.problem + "** — " + w.solution);
+    out += section("Likely to Be Tested", summary.testHints, h => "- " + h);
+    out += section("Open Questions", summary.openQuestions, q => "- " + q);
+    return out.trim();
+  }
+
+  async function copyToClipboard(text, btn) {
+    const original = btn.innerHTML;
+    try {
+      await navigator.clipboard.writeText(text);
+      btn.innerHTML = original.replace("Copy", "Copied!");
+    } catch (err) {
+      btn.innerHTML = original.replace("Copy", "Copy failed");
+    }
+    setTimeout(() => { btn.innerHTML = original; }, 1600);
+  }
+
+  function downloadText(filename, text) {
+    const blob = new Blob([text], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function slugify(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "lecture"; }
+
+  generateSummaryBtn.addEventListener("click", async () => {
+    const transcript = transcriptInput.value.trim();
+    if (!transcript) return;
+    summaryError.classList.add("hidden");
+    summaryOutput.classList.add("hidden");
+    summaryLoading.classList.remove("hidden");
+    generateSummaryBtn.disabled = true;
+    try {
+      const raw = await callClaude(buildSummaryPrompt(transcript));
+      const cleaned = raw.replace(/```json|```/g, "").trim();
+      const parsed = JSON.parse(cleaned);
+      const lecture = lectures.find(l => l.id === activeLectureId);
+      lecture.transcript = transcript;
+      lecture.summary = parsed;
+      lecture.status = "done";
+      persistLectureUpdate(lecture);
+      detailEyebrow.className = "preview-eyebrow";
+      flashText(detailEyebrow, "Generated From Transcript");
+      generateSummaryBtn.textContent = "Regenerate Summary";
+      renderSummaryOutput(parsed);
+      renderLectureList();
+      renderGuidesScreen();
+    } catch (err) {
+      summaryError.textContent = "Couldn't generate a summary — " + err.message + ". Try again.";
+      summaryError.classList.remove("hidden");
+    } finally {
+      summaryLoading.classList.add("hidden");
+      updateGenerateBtnState();
+    }
+  });
+
+  function renderLectureList() {
+    lectureListEl.innerHTML = "";
+    const relevant = lectures.filter(l => l.classId === selectedClassId);
+    if (relevant.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.innerHTML = "<p>No lectures recorded for this class yet.</p>";
+      lectureListEl.appendChild(empty);
+      return;
+    }
+    relevant.forEach((lec, i) => {
+      const cls = classes.find(c => c.id === lec.classId);
+      const row = document.createElement("div");
+      row.className = "lecture-row";
+      row.style.animationDelay = (i * 0.05) + "s";
+      const dot = document.createElement("div");
+      dot.className = "row-dot"; dot.style.background = cls ? cls.color : "#888"; dot.style.boxShadow = "0 0 8px " + (cls ? cls.color : "#888") + "90";
+      row.addEventListener("click", () => { spawnLockOn(dot); setTimeout(() => openLectureDetail(lec.id), 140); });
+      const body = document.createElement("div"); body.className = "row-body";
+      const top = document.createElement("div"); top.className = "row-top";
+      const name = document.createElement("div"); name.className = "row-name";
+      name.textContent = lec.date.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + " · " + lec.date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+      top.appendChild(name);
+      body.appendChild(top);
+      const meta = document.createElement("div"); meta.className = "row-meta"; meta.textContent = formatTime(lec.durationSec).replace(/^00:/, "");
+      body.appendChild(meta);
+      const statusChip = document.createElement("div");
+      statusChip.className = "status-chip " + (lec.status === "done" ? "done" : "processing");
+      statusChip.textContent = lec.status === "done" ? "Ready" : "Add Transcript";
+      row.appendChild(dot); row.appendChild(body); row.appendChild(statusChip);
+      lectureListEl.appendChild(row);
+    });
+  }
+
+  // ================= GUIDES =================
+  const guidesListView = document.getElementById("guidesListView");
+  const guidesClassList = document.getElementById("guidesClassList");
+  const guideDetailView = document.getElementById("guideDetailView");
+  const guideDetailTitle = document.getElementById("guideDetailTitle");
+  const compileGuideBtn = document.getElementById("compileGuideBtn");
+  const guideLoading = document.getElementById("guideLoading");
+  const guideError = document.getElementById("guideError");
+  const guideContent = document.getElementById("guideContent");
+  const guidesStatusText = document.getElementById("guidesStatusText");
+
+  let guidesActiveClassId = null;
+
+  function renderGuidesScreen() {
+    if (guidesActiveClassId && !classes.find(c => c.id === guidesActiveClassId)) guidesActiveClassId = null;
+    guidesActiveClassId ? renderGuideDetail() : renderGuidesList();
+  }
+
+  function updateGuidesStatus() {
+    const n = Object.keys(studyGuides).length;
+    flashText(guidesStatusText, n === 0 ? "STANDING BY" : n === 1 ? "1 GUIDE READY" : n + " GUIDES READY");
+  }
+
+  function renderGuidesList() {
+    guideDetailView.classList.add("hidden");
+    guidesListView.classList.remove("hidden");
+    updateGuidesStatus();
+    guidesClassList.innerHTML = "";
+    if (classes.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.innerHTML = "<p>Add a class and record a few lectures first — study guides compile from there.</p>";
+      guidesClassList.appendChild(empty);
+      return;
+    }
+    classes.forEach((cls, i) => {
+      const doneCount = lectures.filter(l => l.classId === cls.id && l.status === "done").length;
+      const row = document.createElement("div");
+      row.className = "lecture-row";
+      row.style.animationDelay = (i * 0.05) + "s";
+      const dot = document.createElement("div");
+      dot.className = "row-dot"; dot.style.background = cls.color; dot.style.boxShadow = "0 0 8px " + cls.color + "90";
+      row.addEventListener("click", () => { spawnLockOn(dot); setTimeout(() => { guidesActiveClassId = cls.id; renderGuideDetail(); }, 140); });
+      const body = document.createElement("div"); body.className = "row-body";
+      const top = document.createElement("div"); top.className = "row-top";
+      const name = document.createElement("div"); name.className = "row-name"; name.textContent = cls.name;
+      top.appendChild(name);
+      body.appendChild(top);
+      const meta = document.createElement("div"); meta.className = "row-meta";
+      meta.textContent = doneCount === 0 ? "No lectures ready" : doneCount === 1 ? "1 lecture ready" : doneCount + " lectures ready";
+      body.appendChild(meta);
+      const chevron = document.createElement("div"); chevron.className = "chevron"; chevron.textContent = "\u203A";
+      row.appendChild(dot); row.appendChild(body); row.appendChild(chevron);
+      guidesClassList.appendChild(row);
+    });
+  }
+
+  function renderGuideDetail() {
+    guidesListView.classList.add("hidden");
+    guideDetailView.classList.remove("hidden");
+    const cls = classes.find(c => c.id === guidesActiveClassId);
+    guideDetailTitle.textContent = cls.name;
+    const doneLectures = lectures.filter(l => l.classId === cls.id && l.status === "done");
+    compileGuideBtn.disabled = doneLectures.length === 0;
+    compileGuideBtn.textContent = studyGuides[cls.id] ? "Recompile Study Guide" : "Compile Study Guide";
+    guideError.classList.add("hidden");
+    guideLoading.classList.add("hidden");
+    const guide = studyGuides[cls.id];
+    if (guide) { guideContent.innerHTML = renderMarkdownLite(guide.content); guideContent.classList.remove("hidden"); }
+    else { guideContent.classList.add("hidden"); guideContent.innerHTML = ""; }
+    document.getElementById("guideActions").classList.toggle("hidden", !guide);
+  }
+
+  document.getElementById("guideBackBtn").addEventListener("click", () => { guidesActiveClassId = null; renderGuidesList(); });
+
+  document.getElementById("copyGuideBtn").addEventListener("click", (e) => {
+    const guide = studyGuides[guidesActiveClassId];
+    if (guide) copyToClipboard(guide.content, e.currentTarget);
+  });
+  document.getElementById("downloadGuideBtn").addEventListener("click", () => {
+    const guide = studyGuides[guidesActiveClassId];
+    const cls = classes.find(c => c.id === guidesActiveClassId);
+    if (guide) downloadText(slugify(cls ? cls.name : "study-guide") + "-study-guide.md", guide.content);
+  });
+
+  compileGuideBtn.addEventListener("click", async () => {
+    const cls = classes.find(c => c.id === guidesActiveClassId);
+    const doneLectures = lectures.filter(l => l.classId === cls.id && l.status === "done");
+    if (doneLectures.length === 0) return;
+    guideError.classList.add("hidden");
+    guideLoading.classList.remove("hidden");
+    compileGuideBtn.disabled = true;
+    try {
+      const summaries = doneLectures.map(l => ({
+        date: l.date.toLocaleDateString(),
+        topic: l.summary.topic,
+        keyConcepts: l.summary.keyConcepts || [],
+        testHints: l.summary.testHints || []
+      }));
+      const raw = await callClaude(buildGuidePrompt(cls.name, summaries), 3000);
+      studyGuides[cls.id] = { content: raw, generatedAt: new Date(), sourceLectureIds: doneLectures.map(l => l.id) };
+      persistGuideInsert(cls.id, studyGuides[cls.id]);
+      renderGuideDetail();
+    } catch (err) {
+      guideError.textContent = "Couldn't compile the guide — " + err.message + ". Try again.";
+      guideError.classList.remove("hidden");
+    } finally {
+      guideLoading.classList.add("hidden");
+      compileGuideBtn.disabled = doneLectures.length === 0;
+    }
+  });
+
+  (async function init() {
+    renderClassList(); // instant paint (likely empty) so the page isn't blank while the fetch runs
+    playScanSweep();
+    await loadAllData();
+    renderAll();
+  })();
+</script>
+
+</body>
+</html>
